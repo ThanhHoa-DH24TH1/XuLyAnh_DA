@@ -1,89 +1,50 @@
 import cv2
-import os
 import matplotlib.pyplot as plt
+from ultralytics import YOLO
 
-# --- 1. CẤU HÌNH ĐƯỜNG DẪN ---
-# Chú ý: Thay bằng đúng thư mục bạn vừa gán nhãn
-FOLDER_PATH = "D:\\XLA\\Dog-Breeds-Dataset\\akita dog" 
-
-def test_yolo_labels():
-    classes_file = os.path.join(FOLDER_PATH, "classes.txt")
-    if not os.path.exists(classes_file):
-        print("Lỗi: Không tìm thấy file classes.txt! Bạn đã gán nhãn chuẩn YOLO chưa?")
-        return
-        
-    with open(classes_file, "r") as f:
-        class_names = [line.strip() for line in f.readlines()]
-
-    # --- ĐIỂM KHÁC BIỆT ---
-    # Chỉ tìm những file .txt bạn đã tạo (bỏ qua file classes.txt)
-    txt_files = [f for f in os.listdir(FOLDER_PATH) if f.endswith('.txt') and f != 'classes.txt']
+def test_yolo_prediction(image_path, model_path="best.pt"):
+    """
+    Hàm kiểm tra khả năng nhận diện của mô hình YOLO đã huấn luyện.
     
-    if not txt_files:
-        print("Chưa tìm thấy file nhãn (.txt) nào trong thư mục này.")
-        return
-
-    # Tính toán lưới hiển thị linh hoạt (hiển thị tất cả ảnh đã làm)
-    n_images = len(txt_files)
-    cols = 3
-    rows = (n_images + cols - 1) // cols
-    plt.figure(figsize=(15, 5 * rows))
-
-    print(f"Đã tìm thấy {n_images} ảnh được gán nhãn. Đang vẽ khung...")
-
-    for i, txt_name in enumerate(txt_files):
-        # Lấy tên gốc để ghép với đuôi ảnh
-        base_name = os.path.splitext(txt_name)[0]
+    :param image_path: Đường dẫn đến bức ảnh cần test (VD: ảnh chó Dogo Argentino)
+    :param model_path: Đường dẫn đến file trọng số mô hình đã huấn luyện
+    """
+    try:
+        # 1. Load mô hình YOLO đã được huấn luyện
+        # Lưu ý: Cần đảm bảo file best.pt đang nằm cùng thư mục hoặc trỏ đúng đường dẫn
+        model = YOLO(model_path)
         
-        # Tìm file ảnh tương ứng (xử lý cả đuôi .jpg, .jpeg, .png)
-        img_path = None
-        for ext in ['.jpg', '.jpeg', '.png', '.JPG']:
-            temp_path = os.path.join(FOLDER_PATH, base_name + ext)
-            if os.path.exists(temp_path):
-                img_path = temp_path
-                break
+        print(f"Đang tiến hành nhận diện ảnh: {image_path}...")
         
-        if img_path is None:
-            continue
-
-        txt_path = os.path.join(FOLDER_PATH, txt_name)
+        # 2. Chạy dự đoán
+        # Tham số conf=0.25 (Chỉ hiển thị các khung có độ tin cậy >= 25%)
+        results = model.predict(source=image_path, conf=0.25)
         
-        # Đọc ảnh bằng OpenCV
-        img = cv2.imread(img_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        h, w, _ = img.shape 
+        # 3. Lấy kết quả ảnh đã được vẽ sẵn bounding box, label và confidence từ YOLO
+        annotated_img = results[0].plot()
         
-        # Đọc tọa độ từ file .txt và vẽ
-        with open(txt_path, "r") as f:
-            lines = f.readlines()
-            
-        for line in lines:
-            data = line.strip().split()
-            if len(data) >= 5:
-                class_id = int(data[0])
-                x_center, y_center, width, height = map(float, data[1:5])
-                
-                # Giải mã tọa độ YOLO sang Pixel
-                x1 = int((x_center - width / 2) * w)
-                y1 = int((y_center - height / 2) * h)
-                x2 = int((x_center + width / 2) * w)
-                y2 = int((y_center + height / 2) * h)
-                
-                # Vẽ khung màu đỏ
-                cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 3)
-                
-                # Ghi chữ
-                if class_id < len(class_names):
-                    label = class_names[class_id]
-                    cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-# Hiển thị lên lưới
-        plt.subplot(rows, cols, i + 1)
-        plt.imshow(img)
+        # Chuyển đổi hệ màu BGR của OpenCV sang RGB để hiển thị đúng màu bằng Matplotlib
+        annotated_img_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
+        
+        # 4. Hiển thị kết quả
+        plt.figure(figsize=(10, 8))
+        plt.imshow(annotated_img_rgb)
         plt.axis("off")
-        plt.title(base_name)
+        plt.title("Kết quả nhận diện bằng YOLO")
+        plt.tight_layout()
+        plt.show()
 
-    plt.tight_layout()
-    plt.show()
+    except Exception as e:
+        print(f"Có lỗi xảy ra: {e}")
+        print("Vui lòng kiểm tra lại đường dẫn ảnh và file trọng số mô hình (best.pt)!")
 
 if __name__ == "__main__":
-    test_yolo_labels()
+    # --- CẤU HÌNH ĐƯỜNG DẪN ĐỂ TEST ---
+    # Thay đường dẫn này bằng bức ảnh bạn muốn test. 
+    # Ví dụ với ảnh bạn đã tải lên: "XuLyAnh_DA/dogo argentino/Image_1.jpg"
+    TEST_IMAGE = "test.jpg" 
+    
+    # Đường dẫn file trọng số của bạn (cập nhật nếu bạn lưu ở nơi khác)
+    WEIGHT_FILE = "runs/detect/train/weights/best.pt" 
+    
+    test_yolo_prediction(TEST_IMAGE, WEIGHT_FILE)

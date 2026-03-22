@@ -6,7 +6,7 @@ print("Đang tải mô hình AI...")
 model = YOLO('best.pt')
 
 # 2. Đưa ảnh vào cho nó nhận diện (nhớ đổi tên ảnh cho đúng file của bro)
-image_path = 'test_meo.jpg'
+image_path = 'test_cho.jpg'
 results = model(image_path)
 
 # 3. Hiển thị kết quả lên màn hình
